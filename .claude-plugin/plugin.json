@@ -1,0 +1,13 @@
+{
+  "name": "tytanium-claude",
+  "version": "1.0.0",
+  "description": "Personal Claude Code skills for PR workflows, code review, and shipping",
+  "author": {
+    "name": "TytaniumDev",
+    "url": "https://github.com/TytaniumDev"
+  },
+  "repository": "https://github.com/TytaniumDev/tytanium-claude",
+  "license": "MIT",
+  "keywords": ["workflow", "pr", "code-review"],
+  "skills": "./skills/"
+}
