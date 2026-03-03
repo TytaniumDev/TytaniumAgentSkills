@@ -1,6 +1,6 @@
 ---
 name: ship-it
-description: Create a PR, wait for automatic code reviews, address all review comments, and merge.
+description: Create a PR, request code reviews from Claude and Gemini, address all review comments, and merge.
 disable-model-invocation: true
 argument-hint: [optional description of changes]
 allowed-tools:
@@ -32,14 +32,20 @@ $ARGUMENTS
   - If there is a related GitHub issue, include `Closes #N` in the body
 - Capture the PR number from the output
 
-### 2. Wait for Reviews
+### 2. Request Code Reviews
 
-- Code reviews from Claude and Gemini are triggered automatically when the PR is created
+- Comment on the PR to trigger code review bots:
+  ```
+  gh pr comment <number> --body "@claude do a code review"
+  ```
+
+### 3. Wait for Reviews
+
 - Poll for review comments using `gh pr view <number> --json reviews,comments` and `gh api repos/{owner}/{repo}/pulls/<number>/comments`
 - Wait until at least one substantive review has been posted (check every 30 seconds, up to 10 minutes)
 - Once reviews arrive, read ALL review comments carefully — from both Claude and Gemini (and any human reviewers)
 
-### 3. Address Review Comments
+### 4. Address Review Comments
 
 - For each review comment or suggestion:
   - Read the relevant code in context
@@ -48,7 +54,7 @@ $ARGUMENTS
 - After all changes are made, commit with a message like `chore: address review feedback`
 - Push the changes with `git push`
 
-### 4. Verify and Merge
+### 5. Verify and Merge
 
 - Check that CI is passing: `gh pr checks <number>`
   - If CI is failing, investigate and fix the issues, commit, and push again
