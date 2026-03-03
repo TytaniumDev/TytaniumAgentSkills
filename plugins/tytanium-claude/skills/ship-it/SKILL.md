@@ -41,8 +41,10 @@ $ARGUMENTS
 
 ### 3. Wait for Reviews
 
-- Poll for review comments using `gh pr view <number> --json reviews,comments` and `gh api repos/{owner}/{repo}/pulls/<number>/comments`
-- Wait until at least one substantive review has been posted (check every 30 seconds, up to 10 minutes)
+- **You MUST wait at least 5 minutes** before checking for reviews. The Claude and Gemini review agents need time to analyze the PR.
+- First, sleep for 5 minutes: `sleep 300`
+- Then poll for review comments using `gh pr view <number> --json reviews,comments` and `gh api repos/{owner}/{repo}/pulls/<number>/comments`
+- If no substantive reviews have been posted yet, continue polling every 60 seconds for up to 5 more minutes
 - Once reviews arrive, read ALL review comments carefully — from both Claude and Gemini (and any human reviewers)
 
 ### 4. Address Review Comments
