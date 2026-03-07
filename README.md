@@ -19,16 +19,22 @@ Personal Claude Code plugins for PR workflows, code review, and shipping.
 
 ### Install the plugin
 
-Run the following command to install the plugin from the marketplace:
+First, add the marketplace:
 
 ```sh
-claude plugin add TytaniumDev/tytanium-claude
+claude plugin marketplace add TytaniumDev/tytanium-claude
 ```
 
-That's it — the skills will be available in all your Claude Code sessions. You can verify by running `/help` in Claude Code to see the registered skills.
+Then install the plugin:
+
+```sh
+claude plugin install tytanium-claude
+```
+
+The skills will be available in all your Claude Code sessions. You can verify by running `/help` in Claude Code to see the registered skills.
 
 ### Uninstall
 
 ```sh
-claude plugin remove tytanium-claude
+claude plugin uninstall tytanium-claude
 ```
