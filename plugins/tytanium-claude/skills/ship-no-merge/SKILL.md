@@ -41,11 +41,18 @@ $ARGUMENTS
 
 ### 3. Wait for Reviews
 
-- **You MUST wait at least 1 minute** before checking for reviews. The Claude and Gemini review agents need time to analyze the PR.
-- First, sleep for 1 minute: `sleep 60`
-- Then poll for review comments using `gh pr view <number> --json reviews,comments` and `gh api repos/{owner}/{repo}/pulls/<number>/comments`
-- If no substantive reviews have been posted yet, continue polling every 60 seconds for up to 5 more minutes
-- Once reviews arrive, read ALL review comments carefully — from both Claude and Gemini (and any human reviewers)
+- Note: Gemini auto-triggers on PR creation; Claude was triggered by the comment in Step 2.
+- Get the repo's owner/name: `gh repo view --json nameWithOwner --jq '.nameWithOwner'`
+- Poll up to 20 times (sleep 15 seconds before each check, 5 minutes total):
+  - Each cycle starts with `sleep 15`, then checks both APIs for each bot:
+    - `gh api repos/<owner>/<repo>/issues/<number>/comments --jq 'any(.[]; .user.login == "claude[bot]")'`
+    - `gh api repos/<owner>/<repo>/issues/<number>/comments --jq 'any(.[]; .user.login == "gemini-code-assist[bot]")'`
+    - `gh api repos/<owner>/<repo>/pulls/<number>/reviews --jq 'any(.[]; .user.login == "claude[bot]")'`
+    - `gh api repos/<owner>/<repo>/pulls/<number>/reviews --jq 'any(.[]; .user.login == "gemini-code-assist[bot]")'`
+  - Mark `claude_done=true` if either Claude check returns `true`; `gemini_done=true` if either Gemini check returns `true`
+  - If both `claude_done` and `gemini_done` are true, stop polling immediately
+- If 20 cycles complete without both bots posting, note which bot(s) did not respond and proceed with whatever comments/reviews exist
+- Read ALL review comments and formal reviews carefully — from both Claude and Gemini (and any human reviewers)
 
 ### 4. Address Review Comments
 
