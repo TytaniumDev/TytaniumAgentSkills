@@ -25,24 +25,34 @@ Update Step 3 ("Wait for Reviews") in both skills:
 - `plugins/tytanium-claude/skills/ship-it/SKILL.md`
 - `plugins/tytanium-claude/skills/ship-no-merge/SKILL.md`
 
+**Replacement target:** In each file, replace the entire Step 3 block — everything from `### 3. Wait for Reviews` through (but not including) `### 4. Address Review Comments` — with the updated Step 3 text below.
+
 No other steps change. Both files get identical Step 3 content.
 
-### Bot Usernames
+### Bot Triggers
 
 Discovered from real PR history (TytaniumDev/Wheelson#62):
-- Claude: `claude[bot]`
-- Gemini: `gemini-code-assist[bot]`
+- **Claude** (`claude[bot]`): triggered by the `@claude do a code review` comment posted in Step 2
+- **Gemini** (`gemini-code-assist[bot]`): auto-triggers on PR creation as a GitHub App — no explicit mention required
+
+No changes to Step 2 are needed.
+
+### Runtime Values
+
+- **PR number:** captured from the `gh pr create` output in Step 1
+- **owner/repo:** resolved via `gh repo view --json nameWithOwner --jq '.nameWithOwner'`
 
 ### Polling Logic
 
-1. **Initial sleep:** `sleep 15` — give bots time to trigger before first check
-2. **Poll loop:** every 15 seconds, up to 5 minutes total elapsed
-3. **Per cycle, check both APIs:**
-   - Issue comments: `gh api repos/{owner}/{repo}/issues/<pr>/comments`
-   - PR reviews: `gh api repos/{owner}/{repo}/pulls/<pr>/reviews`
-4. **Filter each response** for entries where `user.login` is `claude[bot]` or `gemini-code-assist[bot]`
-5. **Stop condition:** both bot usernames found in the combined results from either API
-6. **Timeout condition:** 5 minutes elapsed — proceed with whatever comments exist
+The loop sleeps *before* each check so the first API call happens at t=15s (giving bots startup time) and the final timeout exits cleanly without an extra dead wait:
+
+1. **Poll loop:** 20 cycles, each starting with `sleep 15` (20 × 15s = 300s = exactly 5 minutes)
+2. **Per cycle, check both APIs independently for each bot:**
+   - Issue comments: `gh api repos/<owner>/<repo>/issues/<pr>/comments`
+   - PR reviews: `gh api repos/<owner>/<repo>/pulls/<pr>/reviews`
+3. **Track per-bot:** mark `claude_done=true` if `claude[bot]` appears in either API; `gemini_done=true` if `gemini-code-assist[bot]` appears in either API
+4. **Stop condition:** both `claude_done` and `gemini_done` are true — exit the loop immediately
+5. **Timeout:** all 20 cycles complete — proceed with whatever exists, and note any bot that did not respond
 
 ### Why Both APIs
 
@@ -50,19 +60,23 @@ Bots may post as issue-level comments (observed on Wheelson#62) or as formal Git
 
 ### jq Filters
 
-Extract bot usernames from issue comments:
+Each check returns `true` or `false`:
+
 ```
-gh api repos/{owner}/{repo}/issues/<pr>/comments \
-  --jq '[.[] | select(.user.login == "claude[bot]" or .user.login == "gemini-code-assist[bot]")] | map(.user.login) | unique'
+gh api repos/<owner>/<repo>/issues/<pr>/comments \
+  --jq 'any(.[]; .user.login == "claude[bot]")'
+
+gh api repos/<owner>/<repo>/issues/<pr>/comments \
+  --jq 'any(.[]; .user.login == "gemini-code-assist[bot]")'
+
+gh api repos/<owner>/<repo>/pulls/<pr>/reviews \
+  --jq 'any(.[]; .user.login == "claude[bot]")'
+
+gh api repos/<owner>/<repo>/pulls/<pr>/reviews \
+  --jq 'any(.[]; .user.login == "gemini-code-assist[bot]")'
 ```
 
-Extract bot usernames from PR reviews:
-```
-gh api repos/{owner}/{repo}/pulls/<pr>/reviews \
-  --jq '[.[] | select(.user.login == "claude[bot]" or .user.login == "gemini-code-assist[bot]")] | map(.user.login) | unique'
-```
-
-Merge and deduplicate the two arrays in subsequent logic. When the combined unique set equals `["claude[bot]", "gemini-code-assist[bot]"]` (2 entries), stop polling.
+A bot is considered done if either its issue-comments check OR its reviews check returns `true`.
 
 ### Token Cost
 
@@ -70,21 +84,27 @@ Merge and deduplicate the two arrays in subsequent logic. When the combined uniq
 
 ## Updated Step 3 Text
 
+Replace the existing `### 3. Wait for Reviews` block in each skill file with:
+
 ```markdown
 ### 3. Wait for Reviews
 
-- Sleep 15 seconds to give bots time to trigger: `sleep 15`
-- Then poll every 15 seconds for up to 5 minutes total, checking both APIs each cycle:
-  - Issue comments: `gh api repos/{owner}/{repo}/issues/<number>/comments --jq '[.[] | select(.user.login == "claude[bot]" or .user.login == "gemini-code-assist[bot]")] | map(.user.login) | unique'`
-  - PR reviews: `gh api repos/{owner}/{repo}/pulls/<number>/reviews --jq '[.[] | select(.user.login == "claude[bot]" or .user.login == "gemini-code-assist[bot]")] | map(.user.login) | unique'`
-- Combine and deduplicate the results from both API calls
-- Stop polling as soon as both `claude[bot]` and `gemini-code-assist[bot]` appear in the combined results
-- If 5 minutes elapse before both have posted, proceed with whatever comments/reviews exist
-- Once done waiting, read ALL review comments and formal reviews carefully — from both Claude and Gemini (and any human reviewers)
+- Note: Gemini auto-triggers on PR creation; Claude was triggered by the comment in Step 2.
+- Get the repo's owner/name: `gh repo view --json nameWithOwner --jq '.nameWithOwner'`
+- Poll up to 20 times (sleep 15 seconds before each check, 5 minutes total):
+  - Each cycle starts with `sleep 15`, then checks both APIs for each bot:
+    - `gh api repos/<owner>/<repo>/issues/<number>/comments --jq 'any(.[]; .user.login == "claude[bot]")'`
+    - `gh api repos/<owner>/<repo>/issues/<number>/comments --jq 'any(.[]; .user.login == "gemini-code-assist[bot]")'`
+    - `gh api repos/<owner>/<repo>/pulls/<number>/reviews --jq 'any(.[]; .user.login == "claude[bot]")'`
+    - `gh api repos/<owner>/<repo>/pulls/<number>/reviews --jq 'any(.[]; .user.login == "gemini-code-assist[bot]")'`
+  - Mark `claude_done=true` if either Claude check returns `true`; `gemini_done=true` if either Gemini check returns `true`
+  - If both `claude_done` and `gemini_done` are true, stop polling immediately
+- If 20 cycles complete without both bots posting, note which bot(s) did not respond and proceed with whatever comments/reviews exist
+- Read ALL review comments and formal reviews carefully — from both Claude and Gemini (and any human reviewers)
 ```
 
 ## Non-Goals
 
-- No changes to any other step in either skill
+- No changes to Step 2 (review triggers)
 - No changes to how review comments are addressed (Step 4)
 - No changes to merge/CI steps (Step 5)
