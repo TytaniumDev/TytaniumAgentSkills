@@ -8,8 +8,8 @@
   },
   "plugins": [
     {
-      "name": "tytanium-claude",
-      "source": "./plugins/tytanium-claude",
+      "name": "TytaniumAgentSkills",
+      "source": "./plugins/TytaniumAgentSkills",
       "description": "PR workflow skills: create, review, address feedback, and merge",
       "version": "1.0.0"
     }

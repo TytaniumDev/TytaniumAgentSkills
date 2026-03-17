@@ -1,4 +1,4 @@
-# tytanium-claude
+# TytaniumAgentSkills
 
 Personal Claude Code plugins for PR workflows, code review, and shipping.
 
@@ -22,13 +22,13 @@ Personal Claude Code plugins for PR workflows, code review, and shipping.
 First, add the marketplace:
 
 ```sh
-claude plugin marketplace add TytaniumDev/tytanium-claude
+claude plugin marketplace add TytaniumDev/TytaniumAgentSkills
 ```
 
 Then install the plugin:
 
 ```sh
-claude plugin install tytanium-claude
+claude plugin install TytaniumAgentSkills
 ```
 
 The skills will be available in all your Claude Code sessions. You can verify by running `/help` in Claude Code to see the registered skills.
@@ -36,5 +36,5 @@ The skills will be available in all your Claude Code sessions. You can verify by
 ### Uninstall
 
 ```sh
-claude plugin uninstall tytanium-claude
+claude plugin uninstall TytaniumAgentSkills
 ```

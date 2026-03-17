@@ -16,8 +16,8 @@
 
 | File | Action | What changes |
 |------|--------|--------------|
-| `plugins/tytanium-claude/skills/ship-it/SKILL.md` | Modify | Replace Step 3 block |
-| `plugins/tytanium-claude/skills/ship-no-merge/SKILL.md` | Modify | Replace Step 3 block (identical content) |
+| `plugins/TytaniumAgentSkills/skills/ship-it/SKILL.md` | Modify | Replace Step 3 block |
+| `plugins/TytaniumAgentSkills/skills/ship-no-merge/SKILL.md` | Modify | Replace Step 3 block (identical content) |
 
 No new files. No other files touched.
 
@@ -30,12 +30,12 @@ No new files. No other files touched.
 ### Task 1: Update `ship-it/SKILL.md`
 
 **Files:**
-- Modify: `plugins/tytanium-claude/skills/ship-it/SKILL.md`
+- Modify: `plugins/TytaniumAgentSkills/skills/ship-it/SKILL.md`
 
 - [ ] **Step 1: Read the current file**
 
 ```bash
-cat plugins/tytanium-claude/skills/ship-it/SKILL.md
+cat plugins/TytaniumAgentSkills/skills/ship-it/SKILL.md
 ```
 
 Locate the Step 3 block. It currently starts with:
@@ -71,7 +71,7 @@ Replace everything from `### 3. Wait for Reviews` through (but not including) `#
 - [ ] **Step 3: Verify the file looks correct**
 
 ```bash
-cat plugins/tytanium-claude/skills/ship-it/SKILL.md
+cat plugins/TytaniumAgentSkills/skills/ship-it/SKILL.md
 ```
 
 Expected: Step 3 now contains the poll loop. Steps 1, 2, 4, and 5 are unchanged.
@@ -81,7 +81,7 @@ Expected: Step 3 now contains the poll loop. Steps 1, 2, 4, and 5 are unchanged.
 ### Task 2: Update `ship-no-merge/SKILL.md`
 
 **Files:**
-- Modify: `plugins/tytanium-claude/skills/ship-no-merge/SKILL.md`
+- Modify: `plugins/TytaniumAgentSkills/skills/ship-no-merge/SKILL.md`
 
 - [ ] **Step 1: Apply the identical Step 3 replacement**
 
@@ -90,7 +90,7 @@ Same replacement as Task 1. The only structural difference in `ship-no-merge` is
 - [ ] **Step 2: Verify the file looks correct**
 
 ```bash
-cat plugins/tytanium-claude/skills/ship-no-merge/SKILL.md
+cat plugins/TytaniumAgentSkills/skills/ship-no-merge/SKILL.md
 ```
 
 Expected: Step 3 matches the ship-it version exactly. Steps 1, 2, 4, and 5 are unchanged.
@@ -110,7 +110,7 @@ Confirm: only Step 3 changed in each file, nothing else.
 - [ ] **Step 2: Commit**
 
 ```bash
-git add plugins/tytanium-claude/skills/ship-it/SKILL.md \
-        plugins/tytanium-claude/skills/ship-no-merge/SKILL.md
+git add plugins/TytaniumAgentSkills/skills/ship-it/SKILL.md \
+        plugins/TytaniumAgentSkills/skills/ship-no-merge/SKILL.md
 git commit -m "feat: replace fixed sleep with smart bot-detection polling in ship skills"
 ```

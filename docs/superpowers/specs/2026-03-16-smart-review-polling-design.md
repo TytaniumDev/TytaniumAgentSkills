@@ -22,8 +22,8 @@ Replace the fixed wait with a signal-based poll: check both the issue comments A
 ### Scope
 
 Update Step 3 ("Wait for Reviews") in both skills:
-- `plugins/tytanium-claude/skills/ship-it/SKILL.md`
-- `plugins/tytanium-claude/skills/ship-no-merge/SKILL.md`
+- `plugins/TytaniumAgentSkills/skills/ship-it/SKILL.md`
+- `plugins/TytaniumAgentSkills/skills/ship-no-merge/SKILL.md`
 
 **Replacement target:** In each file, replace the entire Step 3 block — everything from `### 3. Wait for Reviews` through (but not including) `### 4. Address Review Comments` — with the updated Step 3 text below.
 
