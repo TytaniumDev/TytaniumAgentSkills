@@ -3,7 +3,6 @@ name: review-prs
 description: Review all open PRs in the current repo, triage for quality, fix issues, and enable automerge.
 disable-model-invocation: true
 allowed-tools:
-  - Agent
   - Bash(gh *)
   - Bash(git *)
   - Read
