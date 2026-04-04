@@ -21,12 +21,12 @@ Review every open non-draft PR in the current repo. For each PR: rebase onto mai
 
 Run:
 ```
-gh pr list --state open --draft=false --json number,title,headRefName,url --limit 100
+gh pr list --state open --draft=false --json number,title,headRefName,baseRefName,url --limit 100
 ```
 
 If no PRs are returned, report "No open non-draft PRs found" and stop.
 
-Save the list. You will need `number`, `title`, `headRefName`, and `url` for each PR.
+Save the list. You will need `number`, `title`, `headRefName`, `baseRefName`, and `url` for each PR.
 
 ## Step 2: Get Repo Info
 
@@ -42,7 +42,7 @@ Split on `/` to get `OWNER` and `REPO`. You will need these for API calls.
 For EVERY PR from Step 1, dispatch a parallel subagent using the Agent tool with `model: "haiku"` and `isolation: "worktree"`. Send ALL Agent tool calls in a single message so they run concurrently.
 
 Each subagent receives a prompt containing:
-- The PR number, title, branch name, and URL
+- The PR number, title, branch name, base branch name, and URL
 - The OWNER and REPO values
 - The full instructions from the "Per-PR Subagent Instructions" section below
 
@@ -76,41 +76,46 @@ If a section has 0 items, omit it.
 
 **IMPORTANT:** Copy this entire section into the prompt for each haiku subagent, substituting the PR-specific values.
 
-You are processing PR #<NUMBER> ("<TITLE>") on branch `<BRANCH>` in <OWNER>/<REPO>.
+You are processing PR #<NUMBER> ("<TITLE>") on branch `<BRANCH>` targeting `<BASE_BRANCH>` in <OWNER>/<REPO>.
 URL: <URL>
 
-Your job: rebase this PR onto main, run quality checks, fix any issues if worthy, and enable automerge. Return a structured result.
+Your job: rebase this PR onto <BASE_BRANCH>, run quality checks, fix any issues if worthy, and enable automerge. Return a structured result.
 
-### Phase 1: Rebase onto Main
+### Phase 1: Rebase onto Base Branch
 
-1. Fetch latest main:
+1. Check out the PR branch:
    ```
-   git fetch origin main
-   ```
-
-2. Attempt rebase:
-   ```
-   git rebase origin/main
+   git checkout <BRANCH>
    ```
 
-3. If rebase succeeds with no conflicts, force-push:
+2. Fetch latest base branch:
+   ```
+   git fetch origin <BASE_BRANCH>
+   ```
+
+3. Attempt rebase:
+   ```
+   git rebase origin/<BASE_BRANCH>
+   ```
+
+4. If rebase succeeds with no conflicts, force-push:
    ```
    git push --force-with-lease
    ```
 
-4. If rebase fails due to merge conflicts, abort the rebase and dispatch a **sonnet subagent** (using Agent tool with `model: "sonnet"`) with the following instructions:
+5. If rebase fails due to merge conflicts, abort the rebase and dispatch a **sonnet subagent** (using Agent tool with `model: "sonnet"`) with the following instructions:
 
    > You are in a worktree on branch `<BRANCH>` for PR #<NUMBER> in <OWNER>/<REPO>.
-   > A rebase onto origin/main failed with merge conflicts. Resolve them:
+   > A rebase onto origin/<BASE_BRANCH> failed with merge conflicts. Resolve them:
    > 1. Run `git rebase --abort` to reset
-   > 2. Run `git merge origin/main` instead
+   > 2. Run `git merge origin/<BASE_BRANCH>` instead
    > 3. For each conflicted file, read the file, understand both sides, and resolve the conflict sensibly
-   > 4. After resolving all conflicts, run `git add .` and `git commit -m "chore: merge main into <BRANCH>"`
+   > 4. After resolving all conflicts, run `git add .` and `git commit -m "chore: merge <BASE_BRANCH> into <BRANCH>"`
    > 5. Run `git push --force-with-lease`
    > Report "conflicts_resolved" if successful, or "conflicts_unresolvable" with an explanation if not.
 
    If the sonnet subagent reports "conflicts_unresolvable":
-   - Comment on the PR: `gh pr comment <NUMBER> --body "Unable to automatically resolve merge conflicts with main. Manual resolution needed."`
+   - Comment on the PR: `gh pr comment <NUMBER> --body "Unable to automatically resolve merge conflicts with <BASE_BRANCH>. Manual resolution needed."`
    - Return: `{ status: "needs_human_attention", reason: "Unresolvable merge conflicts" }`
 
 ### Phase 2: Quality Gate
@@ -132,9 +137,9 @@ Look at what the PR adds (new functions, components, utilities, etc). For each s
 
 **Check 3: No CI Naming Changes**
 
-Check if the PR modifies any workflow files:
+First check if any workflow files are changed. If none, this check passes. If workflow files are changed, read the full diff of those files and check for `name:` field modifications:
 ```
-gh pr diff <NUMBER> -- .github/workflows/
+gh pr diff <NUMBER> --name-only | grep '.github/workflows/' || true
 ```
 
 If workflow files are changed, check specifically for modifications to `name:` fields on jobs or workflows. Renaming CI jobs or workflows is an automatic rejection — it breaks existing automations. Adding new workflows or changing non-name fields is fine.
@@ -155,13 +160,12 @@ After passing the quality gate, check for issues that need fixing.
 gh pr checks <NUMBER>
 ```
 
-**Check for unresolved review comments:**
+**Check for CHANGES_REQUESTED reviews:**
 ```
-gh api repos/<OWNER>/<REPO>/pulls/<NUMBER>/comments --jq '[.[] | select(.position != null)] | length'
 gh api repos/<OWNER>/<REPO>/pulls/<NUMBER>/reviews --jq '[.[] | select(.state == "CHANGES_REQUESTED")] | length'
 ```
 
-If CI is green AND there are no unresolved review comments, skip to Phase 4.
+If CI is green AND there are no `CHANGES_REQUESTED` reviews, skip to Phase 4.
 
 If there are issues to fix, dispatch a **sonnet subagent** (using Agent tool with `model: "sonnet"`) with the following instructions:
 
@@ -174,10 +178,11 @@ If there are issues to fix, dispatch a **sonnet subagent** (using Agent tool wit
 > 3. Fix the issues in the code using Read/Edit/Write tools
 > 4. Commit and push:
 >    ```
->    git add -A
+>    git add <files you modified>
 >    git commit -m "fix: address CI failures and review feedback"
 >    git push
 >    ```
+>    Stage only the files you modified. Do NOT use `git add -A` or `git add .` — this skill runs across arbitrary repos and could accidentally stage sensitive files.
 > 5. Wait 30 seconds for CI to start, then poll CI status up to 20 times (sleep 15s each):
 >    ```
 >    gh pr checks <NUMBER>
@@ -201,4 +206,6 @@ If the sonnet subagent reports "unfixed":
 gh pr merge <NUMBER> --auto --squash
 ```
 
-Return: `{ status: "automerge_enabled", reason: "<brief note, e.g. CI green / fixed N issues>" }`
+If automerge fails (e.g., the repo has automerge disabled), fall back to reporting the PR as ready for manual merge in the summary. Return: `{ status: "automerge_enabled", reason: "CI green, ready for merge (automerge unavailable — manual merge needed)" }`
+
+If automerge succeeds, return: `{ status: "automerge_enabled", reason: "<brief note, e.g. CI green / fixed N issues>" }`
