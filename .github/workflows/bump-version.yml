@@ -24,12 +24,19 @@ jobs:
           NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
           jq --arg v "$NEW_VERSION" '.version = $v' plugins/TytaniumAgentSkills/.claude-plugin/plugin.json > tmp.json
           mv tmp.json plugins/TytaniumAgentSkills/.claude-plugin/plugin.json
-          echo "Bumped version from $VERSION to $NEW_VERSION"
+          echo "Bumped plugin.json from $VERSION to $NEW_VERSION"
+
+      - name: Sync marketplace version
+        run: |
+          NEW_VERSION=$(jq -r '.version' plugins/TytaniumAgentSkills/.claude-plugin/plugin.json)
+          jq --arg v "$NEW_VERSION" '.plugins[0].version = $v' .claude-plugin/marketplace.json > tmp.json
+          mv tmp.json .claude-plugin/marketplace.json
+          echo "Synced marketplace.json to $NEW_VERSION"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add plugins/TytaniumAgentSkills/.claude-plugin/plugin.json
+          git add plugins/TytaniumAgentSkills/.claude-plugin/plugin.json .claude-plugin/marketplace.json
           git commit -m "chore: bump plugin version"
           git push
