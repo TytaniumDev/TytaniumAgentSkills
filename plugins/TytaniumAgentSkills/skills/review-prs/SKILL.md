@@ -1,10 +1,11 @@
 ---
 name: review-prs
-description: Review all open PRs in the current repo, triage for quality, fix issues, and merge them sequentially.
+description: Review all open PRs in the current repo, triage for quality, close unworthy ones, fix issues, and merge worthy ones sequentially.
 disable-model-invocation: true
 allowed-tools:
   - Bash(gh *)
   - Bash(git *)
+  - Bash(*notify-discord.sh*)
   - Read
   - Grep
   - Glob
@@ -12,9 +13,9 @@ allowed-tools:
   - Write
 ---
 
-# Review PRs: Triage, Fix, and Merge
+# Review PRs: Triage, Fix, Close, and Merge
 
-Review every open non-draft PR in the current repo. For each PR: rebase onto the base branch, run quality checks, fix CI/review issues, and merge if worthy. PRs are processed **sequentially** — after merging one, rebase the next onto the updated base before proceeding. Present a summary at the end.
+Review every open non-draft PR in the current repo. For each PR: rebase onto the base branch, run quality checks, fix CI/review issues, and merge if worthy — or **close** it if not. PRs are processed **sequentially** — after merging one, rebase the next onto the updated base before proceeding. Present a summary and send it to Discord at the end.
 
 ## Step 1: List Open PRs
 
@@ -44,10 +45,12 @@ Each subagent receives the PR number, title, branch name, base branch name, URL,
 
 Each subagent returns a structured report:
 - `pr_number`, `pr_title`, `pr_url`, `base_branch`
-- `verdict`: one of `worthy`, `not_worthy`
+- `verdict`: one of `worthy`, `closed`
 - `reason`: short explanation
 
-After all triage subagents complete, split the results into two lists: **worthy PRs** and **not-worthy PRs**.
+Not-worthy PRs are **closed** by the triage subagent (after posting an explanatory comment), so they return `closed` directly.
+
+After all triage subagents complete, split the results into two lists: **worthy PRs** and **closed PRs**.
 
 ## Step 4: Merge Worthy PRs Sequentially
 
@@ -118,7 +121,7 @@ After processing all PRs, present a summary:
 ### Merged (N)
 - #<number> -- "<title>" -- <reason> -- <url>
 
-### Not Worthy (N)
+### Closed (N)
 - #<number> -- "<title>" -- <reason> -- <url>
 
 ### Needs Human Attention (N)
@@ -126,6 +129,43 @@ After processing all PRs, present a summary:
 ```
 
 If a section has 0 items, omit it.
+
+## Step 6: Notify via Discord
+
+After presenting the summary to the user, send it to Discord via the bundled notification script `notify-discord.sh` (located in this skill's directory). The script handles Doppler lookup, env-var fallback, payload construction, error reporting, and Discord's 2000-char limit itself — do NOT replicate any of that logic inline.
+
+### Locating the script
+
+Try these in order, using the first one that exists:
+
+1. `"$CLAUDE_PLUGIN_ROOT/skills/review-prs/notify-discord.sh"` — set by Claude Code when loading plugin-bundled skills.
+2. Fallback: locate it dynamically:
+   ```
+   NOTIFY_SCRIPT="$(ls -t ~/.claude/plugins/cache/*/TytaniumAgentSkills/*/skills/review-prs/notify-discord.sh 2>/dev/null | head -1)"
+   ```
+   Pick the most recent match if several plugin versions are cached.
+
+If neither resolves, skip Step 6 entirely and print **⚠ Discord notification skipped: notify-discord.sh not found in plugin cache** at the end of your response.
+
+### Invoking the script
+
+Pass the full summary markdown as the body via stdin (heredoc is cleanest):
+
+```
+"$NOTIFY_SCRIPT" "PR Review: <OWNER>/<REPO>" <<'SUMMARY'
+<the exact markdown summary from Step 5 — merged list, closed list, needs-human list>
+SUMMARY
+```
+
+### Interpreting the result
+
+- Exit 0 → notification posted, no further action needed.
+- Exit 1 → Doppler not installed **and** no `DISCORD_WEBHOOK` env var set. Surface this prominently so the user knows to install Doppler (`brew install dopplerhq/cli/doppler && doppler login`) or export `DISCORD_WEBHOOK`.
+- Exit 2 → Doppler lookup failed (project/config/secret missing, or not authenticated). Surface the stderr output so the user can diagnose.
+- Exit 3 → Discord rejected the webhook (rotated, deleted, or rate-limited). Surface the stderr output.
+- Exit 4 → `python3` missing. Surface the error.
+
+In every non-zero case, print a visible **⚠ Discord notification failed: `<reason from stderr>`** line at the end of your response. Do not treat the failure as fatal — the PR work is already complete; the user just loses the push notification for this run.
 
 ---
 
@@ -170,7 +210,11 @@ If ANY check fails:
   ```
   gh pr comment <NUMBER> --body "<explanation of which checks failed and why>"
   ```
-- Return: `{ verdict: "not_worthy", reason: "<brief summary of failures>" }`
+- Close the PR:
+  ```
+  gh pr close <NUMBER> --comment "Closing after automated review. See prior comment for details."
+  ```
+- Return: `{ verdict: "closed", reason: "<brief summary of failures>" }`
 
 ---
 
