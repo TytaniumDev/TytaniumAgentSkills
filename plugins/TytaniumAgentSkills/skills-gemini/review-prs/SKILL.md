@@ -1,11 +1,11 @@
 ---
 name: review-prs
-description: Review all open PRs in the current repo, triage for quality, fix issues, and merge them sequentially. Use this when the user wants to review all open PRs.
+description: Review all open PRs in the current repo, triage for quality, close unworthy ones, fix issues, and merge worthy ones sequentially. Use this when the user wants to review all open PRs.
 ---
 
-# Review PRs: Triage, Fix, and Merge
+# Review PRs: Triage, Fix, Close, and Merge
 
-Review every open non-draft PR in the current repo. For each PR: rebase onto the base branch, run quality checks, fix CI/review issues, and merge if worthy. PRs are merged **sequentially** — after merging one, rebase the next onto the updated base before proceeding. Present a summary at the end.
+Review every open non-draft PR in the current repo. For each PR: rebase onto the base branch, run quality checks, fix CI/review issues, and merge if worthy — or **close** it if not. PRs are merged **sequentially** — after merging one, rebase the next onto the updated base before proceeding. Present a summary at the end.
 
 ## Step 1: List Open PRs
 
@@ -33,10 +33,12 @@ For EVERY PR from Step 1, evaluate whether it is worthy of merging. You can proc
 
 For each PR, follow the "Triage Instructions" section below and record:
 - `pr_number`, `pr_title`, `pr_url`, `base_branch`
-- `verdict`: one of `worthy`, `not_worthy`
+- `verdict`: one of `worthy`, `closed`
 - `reason`: short explanation
 
-After all triage completes, split the results into two lists: **worthy PRs** and **not-worthy PRs**.
+Not-worthy PRs are **closed** during triage (after posting an explanatory comment).
+
+After all triage completes, split the results into two lists: **worthy PRs** and **closed PRs**.
 
 ## Step 4: Merge Worthy PRs Sequentially
 
@@ -142,7 +144,7 @@ After processing all PRs:
 ### Merged (N)
 - #<number> -- "<title>" -- <reason> -- <url>
 
-### Not Worthy (N)
+### Closed (N)
 - #<number> -- "<title>" -- <reason> -- <url>
 
 ### Needs Human Attention (N)
@@ -191,4 +193,8 @@ If ANY check fails:
   ```
   gh pr comment <NUMBER> --body "<explanation>"
   ```
-- Record as `not_worthy` with a brief summary of failures.
+- Close the PR:
+  ```
+  gh pr close <NUMBER> --comment "Closing after automated review. See prior comment for details."
+  ```
+- Record as `closed` with a brief summary of failures.
